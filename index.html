@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latest eBay Listings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: #0064d2;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .listings-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .listing-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .listing-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .listing-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background-color: #e0e0e0;
+        }
+        
+        .listing-content {
+            padding: 20px;
+        }
+        
+        .listing-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #0064d2;
+        }
+        
+        .listing-price {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 15px;
+        }
+        
+        .listing-description {
+            color: #666;
+            margin-bottom: 15px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .listing-link {
+            display: inline-block;
+            background-color: #0064d2;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+        }
+        
+        .listing-link:hover {
+            background-color: #0052a3;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 30px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: #666;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            background-color: #ffebee;
+            border-radius: 10px;
+            color: #c62828;
+            margin: 20px 0;
+        }
+        
+        .retry-button {
+            background-color: #0064d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 15px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .retry-button:hover {
+            background-color: #0052a3;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Latest eBay Listings</h1>
+            <p class="subtitle">Fresh deals from eBay updated in real-time</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div id="listings-container" class="listings-container">
+            <div class="loading">Loading latest listings...</div>
+        </div>
+    </div>
+    
+    <footer class="footer">
+        <div class="container">
+            <p>Data provided by eBay RSS Feed. Updated every time you refresh the page.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchListings();
+        });
+
+        function fetchListings() {
+            const rssUrl = 'https://www.rssground.com/services/ebay-rss/68bf9869d3926';
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(rssUrl);
+            
+            const listingsContainer = document.getElementById('listings-container');
+            listingsContainer.innerHTML = '<div class="loading">Loading latest listings...</div>';
+            
+            fetch(proxyUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.contents) {
+                        throw new Error('No content received from proxy');
+                    }
+                    
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(data.contents, "text/xml");
+                    
+                    // Check for parsing errors
+                    const parserError = xmlDoc.querySelector('parsererror');
+                    if (parserError) {
+                        throw new Error('XML parsing error');
+                    }
+                    
+                    const items = xmlDoc.querySelectorAll('item');
+                    
+                    if (items.length === 0) {
+                        throw new Error('No listings found in RSS feed');
+                    }
+                    
+                    listingsContainer.innerHTML = '';
+                    
+                    // Display the first 10 items (or fewer if there aren't 10)
+                    for (let i = 0; i < Math.min(10, items.length); i++) {
+                        const item = items[i];
+                        
+                        try {
+                            // Extract listing details
+                            const title = getElementText(item, 'title') || 'No title available';
+                            const link = getElementText(item, 'link') || '#';
+                            const description = getElementText(item, 'description') || 'No description available';
+                            
+                            // Extract image URL from description
+                            let imageUrl = '';
+                            const imgMatch = description.match(/<img[^>]+src="([^">]+)"/);
+                            if (imgMatch && imgMatch[1]) {
+                                imageUrl = imgMatch[1];
+                            }
+                            
+                            // Extract price using improved method
+                            let price = extractPrice(description, title);
+                            
+                            // Clean description text
+                            const cleanDescription = description.replace(/<[^>]*>/g, '').substring(0, 120) + '...';
+                            
+                            // Create listing card
+                            const listingCard = document.createElement('div');
+                            listingCard.className = 'listing-card';
+                            
+                            listingCard.innerHTML = `
+                                <img src="${imageUrl || 'https://via.placeholder.com/300x200?text=No+Image'}" alt="${title}" class="listing-image">
+                                <div class="listing-content">
+                                    <h3 class="listing-title">${title}</h3>
+                                    <div class="listing-price">${price}</div>
+                                    <div class="listing-description">${cleanDescription}</div>
+                                    <a href="${link}" target="_blank" class="listing-link">View on eBay</a>
+                                </div>
+                            `;
+                            
+                            listingsContainer.appendChild(listingCard);
+                        } catch (itemError) {
+                            console.error('Error processing item:', itemError);
+                            // Skip this item and continue with the next
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching eBay listings:', error);
+                    listingsContainer.innerHTML = `
+                        <div class="error">
+                            <h3>Unable to load listings</h3>
+                            <p>We couldn't retrieve the latest eBay listings. This might be due to:</p>
+                            <ul style="text-align: left; display: inline-block; margin: 15px 0;">
+                                <li>Network connectivity issues</li>
+                                <li>The RSS feed service being temporarily unavailable</li>
+                                <li>CORS restrictions preventing access</li>
+                            </ul>
+                            <p>Please try again later.</p>
+                            <button class="retry-button" onclick="fetchListings()">Try Again</button>
+                        </div>
+                    `;
+                });
+        }
+        
+        function getElementText(parent, selector) {
+            const element = parent.querySelector(selector);
+            return element ? element.textContent.trim() : '';
+        }
+        
+        function extractPrice(description, title) {
+            // Try to extract price from description first, then from title
+            let textToSearch = description + ' ' + title;
+            
+            // Try multiple price patterns
+            const patterns = [
+                /\$([0-9,]+\.[0-9]{2})/,  // Standard price format: $XX.XX
+                /\$([0-9,]+)/,            // Price without decimals: $XX
+                /([0-9,]+\.[0-9]{2})/,    // Price without dollar sign: XX.XX
+                /([0-9,]+)/               // Just numbers: XX
+            ];
+            
+            for (const pattern of patterns) {
+                const match = textToSearch.match(pattern);
+                if (match && match[1]) {
+                    // Format the price with proper commas and dollar sign
+                    const priceValue = match[1].replace(/,/g, '');
+                    const formattedPrice = new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                        minimumFractionDigits: 2
+                    }).format(parseFloat(priceValue));
+                    
+                    return formattedPrice;
+                }
+            }
+            
+            return 'Price not available';
+        }
+    </script>
+</body>
+</html>
